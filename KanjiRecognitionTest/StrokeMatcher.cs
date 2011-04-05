@@ -42,6 +42,16 @@ namespace KanjiRecognitionTest
 
 		private void CalcInterestingPoints()
 		{
+			CalcInterestingPointsLocal();
+		}
+
+		private void CalcInterestingPointsAll()
+		{
+			InterestingPoints.AddRange(Enumerable.Range(1, Input.Count - 2));
+		}
+
+		private void CalcInterestingPointsLocal()
+		{
 			for (int i = 1; i < Input.Count - 1; i++)
 			{
 				Vector2f prev = Input[i - 1];
@@ -64,37 +74,31 @@ namespace KanjiRecognitionTest
 
 		StrokePartMatch MatchLine(int start, int end)
 		{
-			Vector2f startPoint = Input[start];
-			Vector2f endPoint = Input[end];
-			Vector2f delta = (endPoint - startPoint) / 2;
-			Vector2f para = delta / delta.LengthSquared;
-			float multi = delta.Length;
-			float paraOffset = -startPoint * para - 1;
-			Vector2f ortho = new Vector2f(delta.Y, -delta.X).Normalized;
-			float orthoOffset = -startPoint * ortho;
+			StrokePart line = new StrokePart(Input[start], Input[end]);
+			float multi = line.Length* 0.5f;
 
 			float a = 0, b = 0, c = 0;//Parabel coefficients
 			for (int i = start; i <= end; i++)
 			{
 				Vector2f point = Input[i];
 				float weight = Weight[i];
-				float positionX = point * para + paraOffset;
-				float positionY = point * ortho + orthoOffset;
-				float outside = (Math.Abs(positionX) - 1) * multi;
-				if (outside > 0)
+				float scaledX = line.GetParallelPositionScaled(point);
+				float unscaledY = line.GetOrthoPositionUnscaled(point);
+				float unscaledOutside = (Math.Abs(scaledX) - 1) * multi;
+				if (unscaledOutside > 0)
 				{
-					c += weight * (outside * outside + positionY * positionY);
+					c += weight * (unscaledOutside * unscaledOutside + unscaledY  *unscaledY  );
 				}
 				else
 				{
-					float param = (1 - positionX * positionX) * multi;
+					float param = (1 - scaledX * scaledX) * multi;
 					a += weight * param * param;
-					b += weight * (-2) * param * positionY;
-					c += weight * positionY * positionY;
+					b += weight * (-2) * param * unscaledY;
+					c += weight * unscaledY * unscaledY;
 				}
 			}
 			float optimalCurve = -b / (2 * a);
-			var result = new StrokePartMatch(startPoint, endPoint, optimalCurve);
+			var result = new StrokePartMatch(line.StartPoint, line.EndPoint, optimalCurve);
 			result.DeltaCurveCost = a;
 			result.MinCost = c - b * b / (4 * a);
 

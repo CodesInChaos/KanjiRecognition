@@ -8,6 +8,7 @@ using System.Text;
 using System.Windows.Forms;
 using Chaos.Util.Mathematics;
 using Chaos.Util.TreeDocuments;
+using System.IO;
 
 namespace KanjiRecognitionTest
 {
@@ -18,19 +19,38 @@ namespace KanjiRecognitionTest
 		{
 			InitializeComponent();
 			clear_Click(null, null);
-			TreeDoc td = TreeDoc.Load("KanjiDb.txt");
+			using (StreamReader reader = new StreamReader("../../../data/kanjidb.txt"))
+			{
+				string s;
+				while(true)
+				{
+					string name =  reader.ReadLine();
+					if (name == null)
+						break;
+					s = reader.ReadLine();
+					List<StrokeTemplate> template = new List<StrokeTemplate>();
+					while (!string.IsNullOrEmpty(s))
+					{
+						template.Add(StrokeTemplate.Parse(s));
+						s = reader.ReadLine();
+					}
+					templates.Add(template);
+				}
+			}
+
+			/*TreeDoc td = TreeDoc.Load("KanjiDb.txt");
 			foreach (var kanjiTd in td.Children)
 			{
-				//if ( kanjiTd.Name != "Mouth")
-				//	continue;
+				if (kanjiTd.Name != "Wa")
+					continue;
 				var template = new List<StrokeTemplate>();
 				foreach (var strokeTd in kanjiTd.Children)
 				{
 					template.Add(StrokeTemplate.FromTreeDoc(strokeTd));
 				}
 				templates.Add(template);
-			}
-			matchedTemplate = templates.First();
+			}*/
+			matchedTemplate = templates.Skip(6).First();
 		}
 
 		List<Vector2f> currentStroke;
@@ -66,9 +86,16 @@ namespace KanjiRecognitionTest
 			}
 		}
 
-		private void DrawStrokePart(StrokePart part, Vector2f topLeft, float scale, Graphics graphics, Pen pen1, Pen pen2)
+		private void DrawStrokePart(StrokePart part, Graphics graphics, Pen pen1, Pen pen2)
 		{
-			graphics.DrawLine(pen1, new PointF(part.StartPoint.X, part.StartPoint.Y), new PointF(part.EndPoint.X, part.EndPoint.Y));
+			Vector2f topLeft = new Vector2f(10, 10);
+			Vector2f scale = new Vector2f(0.01f, 0.01f);
+			if (allStrokes.Count > 0)
+				KanjiMatcher.CalcResize(allStrokes, matchedTemplate, out topLeft, out scale);
+
+			graphics.DrawLine(pen1,
+				new PointF(topLeft.X + part.StartPoint.X / scale.X, topLeft.Y + part.StartPoint.Y / scale.Y),
+				new PointF(topLeft.X + part.EndPoint.X / scale.X, topLeft.Y + part.EndPoint.Y / scale.Y));
 			const int sections = 64;
 			PointF[] roundPoints = new PointF[sections + 1];
 			Vector2f delta = part.EndPoint - part.StartPoint;
@@ -76,9 +103,9 @@ namespace KanjiRecognitionTest
 			for (int i = 0; i <= sections; i++)
 			{
 				float pos = (float)i / sections;
+				Vector2f point = part.GetGlobalFromProgress(pos);
 				float param = 1 - (2 * pos - 1) * (2 * pos - 1);
-				Vector2f point = part.StartPoint + delta * pos + ortho * param * (float)part.Curve / 2;
-				point = topLeft + point * scale;
+				point = topLeft + new Vector2f(point.X / scale.X, point.Y / scale.Y);
 				roundPoints[i] = new PointF(point.X, point.Y);
 			}
 			graphics.DrawLines(pen2, roundPoints);
@@ -92,7 +119,7 @@ namespace KanjiRecognitionTest
 				{
 					foreach (var part in stroke.Parts)
 					{
-						DrawStrokePart(part, new Vector2f(30, 20), 100, e.Graphics, Pens.Transparent, Pens.Green);
+						DrawStrokePart(part, e.Graphics, Pens.Transparent, Pens.Green);
 					}
 				}
 				if (bestMatch != null)
@@ -100,7 +127,7 @@ namespace KanjiRecognitionTest
 					{
 						foreach (StrokePartMatch part in match.Parts)
 						{
-							DrawStrokePart(part, new Vector2f(30, 20), 100, e.Graphics, Pens.Red, Pens.Blue);
+							DrawStrokePart(part, e.Graphics, Pens.Red, Pens.Blue);
 						}
 					}
 				/*foreach (var inputStroke in allStrokes)

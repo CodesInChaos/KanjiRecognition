@@ -24,9 +24,9 @@ namespace KanjiRecognitionTest
 			float curveDeltaSquared = curveDelta * curveDelta;
 			float startDeltaSquared = (match.StartPoint - StartPoint).LengthSquared;
 			float endDeltaSquared = (match.StartPoint - StartPoint).LengthSquared;
-			float cost = 4*lenDeltaSquared + 
-				5*(startDeltaSquared + endDeltaSquared)
-				+ curveDeltaSquared + 8*angleDeltaSquared;
+			float cost = 3*lenDeltaSquared + 
+				4*(startDeltaSquared + endDeltaSquared)
+				+6* curveDeltaSquared + 20*Length*angleDeltaSquared;
 			return cost;
 		}
 	}

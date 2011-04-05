@@ -22,34 +22,43 @@ namespace KanjiRecognitionTest
 			matcher.Input = input.Select(stroke => stroke.ToList()).ToList();//Deep copy input
 			matcher.Template = template;
 			matcher.Resize();
-			matcher.MatchStrokes();			
-			float cost=matcher.TotalCost();
+			matcher.MatchStrokes();
+			float cost = matcher.TotalCost();
 			match = matcher.BestMatch;
 			return cost;
 		}
 
-		void Resize()
+		public static void CalcResize(List<List<Vector2f>> input, List<StrokeTemplate> template, out Vector2f topLeft, out Vector2f scale)
 		{
-			IEnumerable<Vector2f> allPoints = Input.SelectMany(stroke => stroke);
+			IEnumerable<Vector2f> allPoints = input.SelectMany(stroke => stroke);
 			float x1 = allPoints.Min(v => v.X);
 			float x2 = allPoints.Max(v => v.X);
 			float y1 = allPoints.Min(v => v.Y);
 			float y2 = allPoints.Max(v => v.Y);
-			var templateParts = Template.SelectMany(stroke => stroke.Parts);
+			var templateParts = template.SelectMany(stroke => stroke.Parts);
 			float templateWidth = Math.Max(templateParts.Max(part => part.StartPoint.X), templateParts.Max(part => part.EndPoint.X));
 			float templateHeight = Math.Max(templateParts.Max(part => part.StartPoint.Y), templateParts.Max(part => part.EndPoint.Y));
-			float scaleX = 1 / (x2 - x1)*Math.Max(0.2f,templateWidth);
-			float scaleY = 1 / (y2 - y1)*Math.Max(0.2f,templateHeight);
+			float scaleX = 1 / (x2 - x1) * Math.Max(0.2f, templateWidth);
+			float scaleY = 1 / (y2 - y1) * Math.Max(0.2f, templateHeight);
 			if (scaleX > 1.5f * scaleY)
 				scaleX = 1.5f * scaleY;
 			if (scaleY > 1.5f * scaleX)
 				scaleY = 1.5f * scaleX;
+			topLeft = new Vector2f(x1, y1);
+			scale = new Vector2f(scaleX, scaleY);
+		}
+
+		void Resize()
+		{
+			Vector2f topLeft;
+			Vector2f scale;
+			CalcResize(Input, Template, out topLeft, out scale);
 			foreach (var inputStroke in Input)
 			{
 				for (int i = 0; i < inputStroke.Count; i++)
 				{
-					inputStroke[i] = (inputStroke[i] - new Vector2f(x1, y1));
-					inputStroke[i] = new Vector2f(inputStroke[i].X * scaleX, inputStroke[i].Y * scaleY);
+					inputStroke[i] = (inputStroke[i] - topLeft);
+					inputStroke[i] = new Vector2f(inputStroke[i].X * scale.X, inputStroke[i].Y * scale.Y);
 				}
 			}
 		}
@@ -92,7 +101,7 @@ namespace KanjiRecognitionTest
 					StrokePartTemplate partTemplate = template.Parts[partIndex];
 					cost += partTemplate.MatchCost(partMatch);
 				}
-				cost += match.Cost*100;
+				cost += match.Cost * 30;
 				if (cost < bestCost)
 				{
 					bestCost = cost;
